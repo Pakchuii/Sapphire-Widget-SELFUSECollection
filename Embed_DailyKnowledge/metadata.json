@@ -1,0 +1,23 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": { "cols": 3, "rows": 3 },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "每日英语单词 + 历史上的今天",
+    "displayName": "每日知识",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_DailyKnowledge",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": { "supportsFile": false, "supportsImage": false, "supportsVideo": false },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_DailyKnowledge.html",
+    "widgetType": "Html"
+}

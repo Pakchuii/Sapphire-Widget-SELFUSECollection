@@ -1,0 +1,23 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": { "cols": 8, "rows": 8 },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "动态立绘交互组件",
+    "displayName": "动态交互图",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_JiggleImage",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": { "supportsFile": false, "supportsImage": false, "supportsVideo": false },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_JiggleImage.html",
+    "widgetType": "Html"
+}

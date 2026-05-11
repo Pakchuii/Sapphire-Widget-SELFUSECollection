@@ -1,0 +1,30 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": {
+        "cols": 2,
+        "rows": 4
+    },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "天气卡片，显示实时天气和预报",
+    "displayName": "天气卡片",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_WeatherCard",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": {
+        "supportsFile": false,
+        "supportsImage": false,
+        "supportsVideo": false
+    },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_WeatherCard.html",
+    "widgetType": "Html"
+}

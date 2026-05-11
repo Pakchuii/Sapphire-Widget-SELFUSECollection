@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>天气卡片</title>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:100vw;height:100vh;overflow:hidden;background:transparent;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#fff}
+.wc{width:100%;height:100%;border-radius:16px;background:linear-gradient(135deg,rgba(30,60,114,0.88),rgba(42,82,152,0.85));backdrop-filter:blur(16px);display:flex;flex-direction:column;padding:16px 18px;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08)}
+.wbg{position:absolute;top:0;left:0;right:0;bottom:0;overflow:hidden;z-index:0;pointer-events:none}
+.wcon{position:relative;z-index:1;display:flex;flex-direction:column;height:100%}
+
+.crow{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.cname{font-size:16px;font-weight:600;opacity:0.9;cursor:pointer;padding:2px 6px;border-radius:6px;transition:background 0.2s}
+.cname:hover{background:rgba(255,255,255,0.1)}
+.rbtn{background:none;border:none;font-size:16px;cursor:pointer;opacity:0.5;transition:all 0.3s}
+.rbtn:hover{opacity:1;transform:rotate(180deg)}
+
+.mw{display:flex;align-items:center;gap:12px;flex:1;min-height:0}
+.wi{font-size:56px;text-shadow:0 4px 12px rgba(0,0,0,0.2);flex-shrink:0}
+.winf{flex:1}
+.tv{font-size:46px;font-weight:200;line-height:1}
+.tu{font-size:20px;font-weight:300;opacity:0.6;vertical-align:top}
+.wd{font-size:14px;opacity:0.7;margin-top:2px}
+
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.di{display:flex;align-items:center;gap:6px;font-size:12px;opacity:0.7;background:rgba(255,255,255,0.06);padding:6px 8px;border-radius:8px}
+
+.fr{display:flex;gap:4px;margin-top:10px;justify-content:space-between}
+.fd{flex:1;text-align:center;background:rgba(255,255,255,0.06);border-radius:10px;padding:6px 2px}
+.fl{font-size:10px;opacity:0.5;margin-bottom:2px}
+.fi{font-size:20px;margin:2px 0}
+.ft{font-size:11px;font-weight:600}
+.ftr{font-size:9px;opacity:0.5}
+
+.co{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10;align-items:center;justify-content:center;border-radius:16px}
+.co.show{display:flex}
+.cib{display:flex;flex-direction:column;gap:10px;padding:24px;background:rgba(30,30,50,0.95);border-radius:12px;width:80%}
+.cib input{padding:10px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;font-size:15px;outline:none}
+.cib input:focus{border-color:#60a5fa}
+.cibr{display:flex;gap:8px}
+.cibr button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600}
+.cibok{background:#60a5fa;color:#fff}
+.cibca{background:rgba(255,255,255,0.1);color:#ccc}
+
+.ld{display:flex;align-items:center;justify-content:center;height:100%;opacity:0.5;font-size:14px}
+
+.raindrop{position:absolute;width:2px;background:rgba(174,194,224,0.4);animation:fall linear infinite;border-radius:0 0 2px 2px}
+@keyframes fall{to{transform:translateY(110vh)}}
+.sun-glow{position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(255,220,100,0.3),transparent 70%);animation:pls 3s ease-in-out infinite}
+@keyframes pls{0%,100%{opacity:0.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+.snowflake{position:absolute;color:rgba(255,255,255,0.7);font-size:12px;animation:snw linear infinite}
+@keyframes snw{to{transform:translateY(110vh) rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wc" id="wCard">
+<div class="wbg" id="wBg"></div>
+<div class="wcon">
+    <div class="crow">
+        <div class="cname" id="cName" onclick="showCI()">📍 加载中...</div>
+        <button class="rbtn" onclick="fetchW()">🔄</button>
+    </div>
+    <div id="mc"><div class="ld">正在获取天气数据...</div></div>
+</div>
+<div class="co" id="cO">
+    <div class="cib">
+        <input id="cI" placeholder="输入城市名（英文，如 Beijing）" onkeydown="if(event.key==='Enter')confirmC()" />
+        <div class="cibr">
+            <button class="cibca" onclick="hideCI()">取消</button>
+            <button class="cibok" onclick="confirmC()">确认</button>
+        </div>
+    </div>
+</div>
+</div>
+<script>
+let city = localStorage.getItem("wCity") || "Beijing";
+const wIcons = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌦️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"❄️",73:"❄️",75:"❄️",77:"🌨️",80:"🌧️",81:"🌧️",82:"⛈️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"};
+const wDescs = {0:"晴朗",1:"基本晴朗",2:"多云",3:"阴天",45:"雾",48:"雾凇",51:"小毛毛雨",53:"毛毛雨",55:"大毛毛雨",61:"小雨",63:"中雨",65:"大雨",71:"小雪",73:"中雪",75:"大雪",77:"雪粒",80:"小阵雨",81:"中阵雨",82:"大阵雨",85:"小阵雪",86:"大阵雪",95:"雷暴",96:"雷暴+冰雹",99:"雷暴+大冰雹"};
+
+function gI(c){return wIcons[c]||"🌡️"}
+function gD(c){return wDescs[c]||"未知"}
+
+function setBg(code){
+    const bg=document.getElementById("wBg"),card=document.getElementById("wCard");
+    bg.innerHTML="";
+    if(code<=1){card.style.background="linear-gradient(135deg,rgba(30,100,180,0.88),rgba(60,150,220,0.85))";bg.innerHTML='<div class="sun-glow"></div>';}
+    else if(code<=3){card.style.background="linear-gradient(135deg,rgba(60,70,90,0.88),rgba(90,100,120,0.85))";}
+    else if(code>=51&&code<=82){card.style.background="linear-gradient(135deg,rgba(30,40,60,0.9),rgba(50,60,80,0.88))";for(let i=0;i<35;i++){const d=document.createElement("div");d.className="raindrop";d.style.left=Math.random()*100+"%";d.style.height=(8+Math.random()*15)+"px";d.style.animationDuration=(0.4+Math.random()*0.5)+"s";d.style.animationDelay=Math.random()*2+"s";d.style.top="-20px";bg.appendChild(d);}}
+    else if(code>=71&&code<=86){card.style.background="linear-gradient(135deg,rgba(80,90,110,0.9),rgba(120,130,150,0.88))";for(let i=0;i<25;i++){const f=document.createElement("div");f.className="snowflake";f.textContent="❄";f.style.left=Math.random()*100+"%";f.style.fontSize=(8+Math.random()*10)+"px";f.style.animationDuration=(2+Math.random()*3)+"s";f.style.animationDelay=Math.random()*3+"s";f.style.top="-20px";bg.appendChild(f);}}
+    else if(code>=95){card.style.background="linear-gradient(135deg,rgba(20,20,40,0.92),rgba(40,30,60,0.9))";}
+}
+
+async function fetchW(){
+    try{
+        document.getElementById("mc").innerHTML='<div class="ld">🔄 获取天气中...</div>';
+        const gR=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(city)+"&count=1&language=zh");
+        const gD2=await gR.json();
+        if(!gD2.results||!gD2.results.length){document.getElementById("mc").innerHTML='<div class="ld">❌ 未找到城市</div>';document.getElementById("cName").textContent="📍 "+city;return;}
+        const{latitude:lat,longitude:lon,name}=gD2.results[0];
+        document.getElementById("cName").textContent="📍 "+(gD2.results[0].admin1||name);
+        const wR=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lon+"&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=4");
+        const w=await wR.json();
+        const c=w.current,d=w.daily;
+        setBg(c.weather_code);
+        const dn=["今天","明天","后天","大后天"];
+        const wDir=["北","东北","东","东南","南","西南","西","西北"][Math.round(c.wind_direction_10m/45)%8];
+        let fh=d.time.map((t,i)=>`<div class="fd"><div class="fl">${dn[i]||t.slice(5)}</div><div class="fi">${gI(d.weather_code[i])}</div><div class="ft">${Math.round(d.temperature_2m_max[i])}°</div><div class="ftr">${Math.round(d.temperature_2m_min[i])}°</div></div>`).join("");
+        document.getElementById("mc").innerHTML=`<div class="mw"><div class="wi">${gI(c.weather_code)}</div><div class="winf"><div class="tv">${Math.round(c.temperature_2m)}<span class="tu">°C</span></div><div class="wd">${gD(c.weather_code)} · 体感 ${Math.round(c.apparent_temperature)}°C</div></div></div><div class="dg"><div class="di">💧 湿度 ${c.relative_humidity_2m}%</div><div class="di">🌬️ ${wDir}风 ${Math.round(c.wind_speed_10m)}km/h</div></div><div class="fr">${fh}</div>`;
+    }catch(e){console.error(e);document.getElementById("mc").innerHTML='<div class="ld">❌ 网络错误，点击🔄重试</div>';document.getElementById("cName").textContent="📍 "+city;}
+}
+
+function showCI(){document.getElementById("cI").value=city;document.getElementById("cO").classList.add("show");document.getElementById("cI").focus();}
+function hideCI(){document.getElementById("cO").classList.remove("show");}
+function confirmC(){const v=document.getElementById("cI").value.trim();if(v){city=v;localStorage.setItem("wCity",v);hideCI();fetchW();}}
+
+fetchW();
+setInterval(fetchW,30*60*1000);
+</script>
+</body>
+</html>

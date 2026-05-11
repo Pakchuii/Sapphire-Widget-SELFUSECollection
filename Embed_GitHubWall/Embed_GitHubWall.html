@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>GitHub 贡献墙</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:100vw;height:100vh;overflow:hidden;background:transparent;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#2d3748}
+.card{width:100%;height:100%;border-radius:16px;background:rgba(255,255,255,0.9);backdrop-filter:blur(55px);-webkit-backdrop-filter:blur(55px);display:flex;flex-direction:column;padding:14px 16px;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid rgba(255,255,255,0.5);overflow:hidden;position:relative}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-shrink:0}
+.user-info{display:flex;align-items:center;gap:8px;cursor:pointer}
+.avatar{width:28px;height:28px;border-radius:50%;background:#e2e8f0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.username{font-size:14px;font-weight:700;color:#2d3748}
+.refresh-btn{background:none;border:none;font-size:14px;cursor:pointer;opacity:0.4;transition:all 0.3s;padding:2px 4px;border-radius:6px}
+.refresh-btn:hover{opacity:1;background:rgba(0,0,0,0.05)}
+
+.stats{display:flex;gap:8px;margin-bottom:10px;flex-shrink:0}
+.stat-card{flex:1;background:rgba(0,0,0,0.03);border-radius:10px;padding:6px 10px;text-align:center}
+.stat-val{font-size:18px;font-weight:800;color:#059669}
+.stat-label{font-size:9px;color:#94a3b8;margin-top:1px}
+
+/* Grid area */
+.grid-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.month-row{display:flex;margin-left:24px;margin-bottom:2px;flex-shrink:0}
+.month-label{font-size:9px;color:#94a3b8;text-align:left}
+.grid-body{display:flex;flex:1;min-height:0;overflow:hidden}
+.day-labels{display:flex;flex-direction:column;justify-content:space-between;margin-right:4px;flex-shrink:0;width:20px;padding:1px 0}
+.day-label{font-size:9px;color:#94a3b8;text-align:right;line-height:1}
+.grid-container{display:flex;gap:2px;flex:1}
+.grid-col{display:flex;flex-direction:column;gap:2px}
+.grid-cell{border-radius:2px;background:rgba(0,0,0,0.04);transition:all 0.1s}
+.grid-cell:hover{outline:1px solid rgba(0,0,0,0.25);transform:scale(1.3);z-index:1;position:relative}
+.grid-cell.c1{background:rgba(5,150,105,0.2)}
+.grid-cell.c2{background:rgba(5,150,105,0.4)}
+.grid-cell.c3{background:rgba(5,150,105,0.65)}
+.grid-cell.c4{background:rgba(5,150,105,0.9)}
+
+/* Tooltip */
+.tip{display:none;position:fixed;background:rgba(30,30,40,0.95);color:#fff;font-size:11px;padding:5px 10px;border-radius:6px;pointer-events:none;z-index:100;white-space:nowrap}
+.tip.show{display:block}
+
+.legend{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:4px;flex-shrink:0}
+.legend-text{font-size:9px;color:#94a3b8}
+.legend-cell{width:10px;height:10px;border-radius:2px}
+
+.overlay{display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.9);backdrop-filter:blur(8px);z-index:10;align-items:center;justify-content:center;border-radius:16px}
+.overlay.show{display:flex}
+.form{background:#fff;border-radius:16px;padding:24px;width:85%;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.12)}
+.form h3{margin-bottom:12px;font-size:15px;text-align:center;color:#2d3748}
+.form input{width:100%;padding:10px 14px;border-radius:8px;border:1px solid #e2e8f0;background:#f7fafc;color:#2d3748;font-size:14px;outline:none;margin-bottom:12px}
+.form input:focus{border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,0.1)}
+.form-btns{display:flex;gap:8px}
+.form-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}
+.btn-ok{background:#059669;color:#fff}
+.btn-cancel{background:#f1f5f9;color:#64748b}
+
+.status{text-align:center;padding:20px;color:#94a3b8;font-size:13px}
+.loading{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="header">
+        <div class="user-info" onclick="showForm()">
+            <div class="avatar" id="avatar"></div>
+            <span class="username" id="usernameLabel">点击设置用户名</span>
+        </div>
+        <button class="refresh-btn" onclick="fetchData()">🔄</button>
+    </div>
+    <div class="stats">
+        <div class="stat-card"><div class="stat-val" id="totalContrib">-</div><div class="stat-label">今年贡献</div></div>
+        <div class="stat-card"><div class="stat-val" id="currentStreak">-</div><div class="stat-label">连续天数</div></div>
+        <div class="stat-card"><div class="stat-val" id="publicRepos">-</div><div class="stat-label">仓库数</div></div>
+    </div>
+    <div class="grid-wrap" id="gridWrap"><div class="status">点击头像设置 GitHub 用户名</div></div>
+    <div class="legend">
+        <span class="legend-text">少</span>
+        <div class="legend-cell" style="background:rgba(0,0,0,0.04)"></div>
+        <div class="legend-cell" style="background:rgba(5,150,105,0.2)"></div>
+        <div class="legend-cell" style="background:rgba(5,150,105,0.4)"></div>
+        <div class="legend-cell" style="background:rgba(5,150,105,0.65)"></div>
+        <div class="legend-cell" style="background:rgba(5,150,105,0.9)"></div>
+        <span class="legend-text">多</span>
+    </div>
+    <div class="overlay" id="overlay">
+        <div class="form">
+            <h3>🐙 设置 GitHub 用户名</h3>
+            <input id="usernameInput" placeholder="输入你的 GitHub 用户名" onkeydown="if(event.key==='Enter')saveUsername()" />
+            <div class="form-btns">
+                <button class="btn-cancel" onclick="hideForm()">取消</button>
+                <button class="btn-ok" onclick="saveUsername()">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tooltip -->
+<div class="tip" id="tip"></div>
+
+<script>
+let ghUser = localStorage.getItem("ghUser") || "";
+let contribDays = {};
+
+// Local date string (avoids UTC timezone issues)
+function localDS(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+const dayNames = ["日","一","二","三","四","五","六"];
+const monthNames = ["1月","2月","3月","4月","5月","6月","7月","8月","9月","10月","11月","12月"];
+
+async function fetchData() {
+    if (!ghUser) return;
+    document.getElementById("usernameLabel").textContent = ghUser;
+    document.getElementById("gridWrap").innerHTML = '<div class="status loading">加载中...</div>';
+
+    try {
+        const userRes = await fetch(`https://api.github.com/users/${encodeURIComponent(ghUser)}`);
+        if (!userRes.ok) throw new Error("用户不存在");
+        const user = await userRes.json();
+        document.getElementById("avatar").innerHTML = `<img src="${user.avatar_url}" />`;
+        document.getElementById("publicRepos").textContent = user.public_repos;
+
+        const contribRes = await fetch(`https://github-contributions-api.jogruber.de/v4/${encodeURIComponent(ghUser)}?y=last`);
+        if (!contribRes.ok) throw new Error("贡献数据获取失败");
+        const contribData = await contribRes.json();
+
+        processContribData(contribData);
+    } catch (e) {
+        document.getElementById("gridWrap").innerHTML = `<div class="status">❌ ${e.message}</div>`;
+    }
+}
+
+function processContribData(data) {
+    contribDays = {};
+    let totalContrib = 0;
+    if (data.contributions) {
+        data.contributions.forEach(c => {
+            contribDays[c.date] = { level: c.level, count: c.count };
+            totalContrib += c.count;
+        });
+    }
+    document.getElementById("totalContrib").textContent = data.total?.lastYear || totalContrib;
+
+    // Streak
+    let streak = 0;
+    const d = new Date(); d.setHours(0,0,0,0);
+    while (true) {
+        const ds = localDS(d);
+        if (contribDays[ds] && contribDays[ds].count > 0) { streak++; d.setDate(d.getDate()-1); }
+        else break;
+    }
+    document.getElementById("currentStreak").textContent = streak;
+
+    renderGrid();
+}
+
+function renderGrid() {
+    const wrap = document.getElementById("gridWrap");
+    wrap.innerHTML = "";
+    const wrapRect = wrap.getBoundingClientRect();
+
+    const gap = 2;
+    const dayLabelW = 24;
+    const availH = wrapRect.height - 16; // minus month label height
+    const availW = wrapRect.width - dayLabelW;
+
+    const cellSize = Math.max(6, Math.floor((availH - 6 * gap) / 7));
+    const numWeeks = Math.min(53, Math.max(8, Math.floor((availW + gap) / (cellSize + gap))));
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const start = new Date(today);
+    start.setDate(start.getDate() - (numWeeks - 1) * 7 - start.getDay());
+
+    // Month labels
+    const monthRow = document.createElement("div");
+    monthRow.className = "month-row";
+    let lastMonth = -1;
+    const cur = new Date(start);
+    for (let w = 0; w < numWeeks; w++) {
+        const m = cur.getMonth();
+        const label = document.createElement("div");
+        label.className = "month-label";
+        label.style.width = (cellSize + gap) + "px";
+        label.style.flexShrink = "0";
+        if (m !== lastMonth) {
+            label.textContent = monthNames[m];
+            lastMonth = m;
+        }
+        monthRow.appendChild(label);
+        cur.setDate(cur.getDate() + 7);
+    }
+    wrap.appendChild(monthRow);
+
+    // Grid body (day labels + cells)
+    const body = document.createElement("div");
+    body.className = "grid-body";
+
+    // Day of week labels
+    const dayLabels = document.createElement("div");
+    dayLabels.className = "day-labels";
+    for (let i = 0; i < 7; i++) {
+        const lbl = document.createElement("div");
+        lbl.className = "day-label";
+        lbl.style.height = cellSize + "px";
+        lbl.style.lineHeight = cellSize + "px";
+        lbl.textContent = (i % 2 === 0) ? dayNames[i] : "";
+        dayLabels.appendChild(lbl);
+    }
+    body.appendChild(dayLabels);
+
+    // Grid cells
+    const container = document.createElement("div");
+    container.className = "grid-container";
+
+    const cur2 = new Date(start);
+    for (let w = 0; w < numWeeks; w++) {
+        const col = document.createElement("div");
+        col.className = "grid-col";
+        for (let d = 0; d < 7; d++) {
+            const cell = document.createElement("div");
+            cell.className = "grid-cell";
+            cell.style.width = cellSize + "px";
+            cell.style.height = cellSize + "px";
+
+            const ds = localDS(cur2);
+            const info = contribDays[ds];
+            if (info) {
+                if (info.level >= 4) cell.classList.add("c4");
+                else if (info.level >= 3) cell.classList.add("c3");
+                else if (info.level >= 2) cell.classList.add("c2");
+                else if (info.level >= 1) cell.classList.add("c1");
+            }
+
+            // Tooltip on hover
+            const weekday = dayNames[cur2.getDay()];
+            const dateLabel = `${cur2.getMonth()+1}月${cur2.getDate()}日 周${weekday}`;
+            const countLabel = info && info.count > 0 ? `${info.count} 次贡献` : "无贡献";
+            cell.dataset.tip = `${dateLabel}：${countLabel}`;
+
+            cell.addEventListener("mouseenter", showTip);
+            cell.addEventListener("mouseleave", hideTip);
+
+            col.appendChild(cell);
+            cur2.setDate(cur2.getDate() + 1);
+        }
+        container.appendChild(col);
+    }
+    body.appendChild(container);
+    wrap.appendChild(body);
+}
+
+// Tooltip
+function showTip(e) {
+    const tip = document.getElementById("tip");
+    tip.textContent = e.target.dataset.tip;
+    tip.classList.add("show");
+    const r = e.target.getBoundingClientRect();
+    tip.style.left = (r.left + r.width / 2 - tip.offsetWidth / 2) + "px";
+    tip.style.top = (r.top - 28) + "px";
+}
+function hideTip() { document.getElementById("tip").classList.remove("show"); }
+
+function showForm() {
+    document.getElementById("usernameInput").value = ghUser;
+    document.getElementById("overlay").classList.add("show");
+    document.getElementById("usernameInput").focus();
+}
+function hideForm() { document.getElementById("overlay").classList.remove("show"); }
+function saveUsername() {
+    const v = document.getElementById("usernameInput").value.trim();
+    if (!v) return;
+    ghUser = v;
+    localStorage.setItem("ghUser", v);
+    hideForm();
+    fetchData();
+}
+
+let rt;
+const ro = new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => { if (Object.keys(contribDays).length) renderGrid(); }, 200); });
+ro.observe(document.querySelector(".card"));
+
+if (ghUser) fetchData();
+</script>
+</body>
+</html>

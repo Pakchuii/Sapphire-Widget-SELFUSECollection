@@ -1,0 +1,23 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": { "cols": 3, "rows": 2 },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "随机动漫台词/文学名句/网络语录",
+    "displayName": "一言",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_Hitokoto",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": { "supportsFile": false, "supportsImage": false, "supportsVideo": false },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_Hitokoto.html",
+    "widgetType": "Html"
+}

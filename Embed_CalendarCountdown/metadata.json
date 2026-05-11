@@ -1,0 +1,30 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": {
+        "cols": 3,
+        "rows": 5
+    },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "月历视图+倒计时纪念日管理",
+    "displayName": "日历与倒计时",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_CalendarCountdown",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": {
+        "supportsFile": false,
+        "supportsImage": false,
+        "supportsVideo": false
+    },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_CalendarCountdown.html",
+    "widgetType": "Html"
+}

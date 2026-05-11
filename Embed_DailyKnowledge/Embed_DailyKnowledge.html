@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>每日知识</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:100vw;height:100vh;overflow:hidden;background:transparent;font-family:"Segoe UI","Microsoft YaHei",sans-serif;color:#2d3748}
+.card{width:100%;height:100%;border-radius:16px;background:rgba(255,255,255,0.9);backdrop-filter:blur(55px);-webkit-backdrop-filter:blur(55px);display:flex;flex-direction:column;box-shadow:0 4px 24px rgba(0,0,0,0.08);border:1px solid rgba(255,255,255,0.5);overflow:hidden;position:relative}
+
+.tabs{display:flex;border-bottom:1px solid rgba(0,0,0,0.06);background:rgba(0,0,0,0.02);flex-shrink:0}
+.tab{flex:1;text-align:center;padding:10px 0;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;transition:all 0.2s;position:relative}
+.tab.active{color:#4f46e5}
+.tab.active::after{content:"";position:absolute;bottom:0;left:20%;right:20%;height:3px;background:#4f46e5;border-radius:3px 3px 0 0}
+.tab:hover:not(.active){background:rgba(0,0,0,0.04)}
+
+.content-area{flex:1;position:relative;overflow:hidden}
+.panel{position:absolute;top:0;left:0;width:100%;height:100%;padding:16px;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.3s;overflow-y:auto}
+.panel.active{opacity:1;pointer-events:auto}
+.panel::-webkit-scrollbar{width:4px}
+.panel::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.1);border-radius:2px}
+
+/* Word Panel */
+.word-box{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer;transition:background 0.2s;border-radius:12px;padding:12px}
+.word-box:hover{background:rgba(0,0,0,0.02)}
+.word{font-size:26px;font-weight:800;color:#1e1b4b;margin-bottom:6px;font-family:Georgia, serif}
+.phonetic{font-size:13px;color:#6366f1;margin-bottom:12px;font-family:monospace;background:rgba(99,102,241,0.1);padding:2px 8px;border-radius:12px}
+.meaning{font-size:14px;color:#475569;line-height:1.5;margin-bottom:16px}
+.sentence{font-size:12px;color:#94a3b8;font-style:italic;line-height:1.5;background:rgba(0,0,0,0.03);padding:10px;border-radius:8px;width:100%}
+
+/* History Panel */
+.date-title{font-size:18px;font-weight:700;color:#b91c1c;margin-bottom:12px;text-align:center;border-bottom:2px dashed rgba(185,28,28,0.2);padding-bottom:8px}
+.history-list{display:flex;flex-direction:column;gap:12px}
+.hist-item{display:flex;gap:10px;align-items:flex-start}
+.hist-year{font-size:13px;font-weight:800;color:#b91c1c;background:rgba(185,28,28,0.1);padding:2px 6px;border-radius:4px;flex-shrink:0}
+.hist-desc{font-size:13px;color:#334155;line-height:1.5}
+
+.loading{text-align:center;color:#94a3b8;font-size:13px;margin-top:20px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:0.5}50%{opacity:1}}
+</style>
+</head>
+<body>
+<div class="card">
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('word')">📖 每日单词</div>
+        <div class="tab" onclick="switchTab('history')">📜 历史今天</div>
+    </div>
+    
+    <div class="content-area">
+        <!-- Word Panel -->
+        <div class="panel active" id="wordPanel">
+            <div class="word-box" id="wordBox" onclick="randomWord()" title="点击换一个">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+        
+        <!-- History Panel -->
+        <div class="panel" id="historyPanel">
+            <div class="date-title" id="histDate">--月--日</div>
+            <div class="history-list" id="histList">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Built-in word list for 100% reliability (API can fail, local list won't)
+const wordList = [
+    {w:"Serendipity", p:"[ˌserənˈdɪpəti]", m:"n. 机缘巧合；意外发现珍奇事物的本领", s:"They found each other by pure serendipity."},
+    {w:"Ephemeral", p:"[ɪˈfemərəl]", m:"adj. 短暂的；朝生暮死的", s:"Fame in the world of rock and roll is largely ephemeral."},
+    {w:"Ubiquitous", p:"[juːˈbɪkwɪtəs]", m:"adj. 无所不在的，普遍存在的", s:"Mobile phones have become ubiquitous."},
+    {w:"Mellifluous", p:"[meˈlɪfluəs]", m:"adj. 声音甜美的，悦耳的", s:"She has a mellifluous voice."},
+    {w:"Luminous", p:"[ˈluːmɪnəs]", m:"adj. 发光的；明亮的；清楚的", s:"The stars are luminous in the dark sky."},
+    {w:"Resilience", p:"[rɪˈzɪliəns]", m:"n. 恢复力；弹力；顺应力", s:"He showed great resilience after the tragedy."},
+    {w:"Pragmatic", p:"[præɡˈmætɪk]", m:"adj. 务实的；实用的", s:"We need to adopt a pragmatic approach to the problem."},
+    {w:"Ineffable", p:"[ɪnˈefəbl]", m:"adj. 难以形容的；不可言喻的", s:"The beauty of a sunset is ineffable."},
+    {w:"Nostalgia", p:"[nɒˈstældʒə]", m:"n. 怀旧；乡愁", s:"A wave of nostalgia washed over me."},
+    {w:"Ethereal", p:"[ɪˈθɪəriəl]", m:"adj. 空灵的；轻飘的；缥缈的", s:"Her beauty was almost ethereal."},
+    {w:"Paradigm", p:"[ˈpærədaɪm]", m:"n. 范例；词形变化表", s:"The war was a paradigm of the destructive side of human nature."},
+    {w:"Tenacious", p:"[təˈneɪʃəs]", m:"adj. 顽强的；坚韧的", s:"She is a tenacious defender of human rights."},
+    {w:"Meticulous", p:"[məˈtɪkjələs]", m:"adj. 一丝不苟的；精确的", s:"He is very meticulous about his work."},
+    {w:"Eloquence", p:"[ˈeləkwəns]", m:"n. 雄辩；口才", s:"She spoke with great eloquence."},
+    {w:"Enigma", p:"[ɪˈnɪɡmə]", m:"n. 谜；难以理解的事物", s:"His disappearance remains an enigma."}
+];
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    
+    if(tab === 'word') {
+        document.querySelectorAll('.tab')[0].classList.add('active');
+        document.getElementById('wordPanel').classList.add('active');
+    } else {
+        document.querySelectorAll('.tab')[1].classList.add('active');
+        document.getElementById('historyPanel').classList.add('active');
+        if(!historyLoaded) fetchHistory();
+    }
+}
+
+let currentWordIndex = -1;
+
+function loadWord() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    const day = Math.floor(diff / oneDay);
+    
+    currentWordIndex = day % wordList.length;
+    renderWord(wordList[currentWordIndex]);
+}
+
+function randomWord() {
+    let nextIndex;
+    do {
+        nextIndex = Math.floor(Math.random() * wordList.length);
+    } while (nextIndex === currentWordIndex && wordList.length > 1);
+    
+    currentWordIndex = nextIndex;
+    renderWord(wordList[currentWordIndex]);
+}
+
+function renderWord(w) {
+    document.getElementById("wordBox").innerHTML = `
+        <div class="word">${w.w}</div>
+        <div class="phonetic">${w.p}</div>
+        <div class="meaning">${w.m}</div>
+        <div class="sentence">${w.s}</div>
+        <div style="font-size:10px;color:#cbd5e1;margin-top:12px">👆点击换一个👆</div>
+    `;
+}
+
+let historyLoaded = false;
+async function fetchHistory() {
+    if(historyLoaded) return;
+    const listEl = document.getElementById("histList");
+    const dateEl = document.getElementById("histDate");
+    
+    const now = new Date();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    dateEl.textContent = `${now.getMonth()+1}月${now.getDate()}日`;
+    
+    try {
+        // Baidu Baike History Today API via CORS Proxy
+        const url = `https://baike.baidu.com/cms/home/eventsOnHistory/${m}.json`;
+        const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        
+        const todayData = data[m][m+d];
+        if(!todayData || todayData.length === 0) throw new Error("今日无数据");
+        
+        // Sort descending by year
+        todayData.sort((a,b) => parseInt(b.year) - parseInt(a.year));
+        
+        listEl.innerHTML = "";
+        // Show up to 8 events
+        todayData.slice(0, 8).forEach(item => {
+            const div = document.createElement("div");
+            div.className = "hist-item";
+            
+            // clean HTML tags from title
+            const tmp = document.createElement("div");
+            tmp.innerHTML = item.title;
+            const text = tmp.textContent || tmp.innerText || "";
+            
+            div.innerHTML = `
+                <div class="hist-year">${item.year}</div>
+                <div class="hist-desc">${text}</div>
+            `;
+            listEl.appendChild(div);
+        });
+        historyLoaded = true;
+    } catch (e) {
+        listEl.innerHTML = `<div class="loading">❌ 获取失败: ${e.message}</div>`;
+    }
+}
+
+loadWord();
+</script>
+</body>
+</html>

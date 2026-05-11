@@ -1,0 +1,29 @@
+{
+	"author": "Sionspota",
+	"authorEmail": "sionspota@163.com",
+	"authorWebsite": "sapphire.icu",
+	"customFields": {},
+	"defaultGridSize": {
+		"cols": 2,
+		"rows": 2
+	},
+	"defaultShowBackground": true,
+	"description": "",
+	"displayName": "MP4播放器",
+	"functions": [],
+	"manualFileName": "",
+	"minimumAppVersion": "",
+	"mouseEventMode": 0,
+	"name": "Embed_MP4Player",
+	"permissions": [],
+	"previewImageFileName": "",
+	"supportTypes": {
+		"supportsFile": false,
+		"supportsImage": false,
+		"supportsVideo": false
+	},
+	"tags": [],
+	"version": "1.0.0",
+	"widgetFileName": "Embed_MP4Player.qml",
+	"widgetType": "Qml"
+}

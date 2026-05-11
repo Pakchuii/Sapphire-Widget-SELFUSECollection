@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>动态交互图 (多角色工程版)</title>
+<style>
+body { margin: 0; overflow: hidden; background: transparent; width: 100vw; height: 100vh; font-family: sans-serif; user-select: none; }
+#glcanvas, #overlayCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+#overlayCanvas { pointer-events: none; }
+#editBtn { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.5); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; z-index: 100; transition: 0.2s; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+#editBtn:hover { background: rgba(255,75,115,0.8); }
+
+#uiPanel { display: none; position: absolute; top: 20px; left: 10px; background: rgba(20,20,20,0.95); color: white; padding: 12px; border-radius: 12px; z-index: 100; box-shadow: 0 8px 32px rgba(0,0,0,0.6); font-size: 13px; backdrop-filter: blur(15px); width: 400px; max-width: 90vw; max-height: 90vh; border: 1px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; overflow: hidden; }
+.drag-handle { cursor: move; background: rgba(255,255,255,0.05); padding: 8px; text-align: center; margin: -12px -12px 12px -12px; border-radius: 12px 12px 0 0; font-weight: bold; color: #888; border-bottom: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+
+.main-flex { display: flex; gap: 12px; flex: 1; min-height: 0; overflow: hidden; }
+.project-sidebar { width: 90px; display: flex; flex-direction: column; border-right: 1px solid #333; padding-right: 10px; flex-shrink: 0; }
+.editor-area { flex: 1; display: flex; flex-direction: column; overflow-y: auto; min-width: 0; }
+
+.action-btn { background: #2a2a2a; color: #eee; border: 1px solid #444; border-radius: 6px; width: 100%; padding: 7px; margin-bottom: 6px; cursor: pointer; transition: 0.2s; font-size: 11px; font-weight: bold; flex-shrink: 0; }
+.action-btn:hover { background: #4f46e5; border-color: #6366f1; color: white; }
+.action-btn.primary { background: #4f46e5; border-color: #6366f1; }
+
+/* 工程列表样式 */
+.item-list { flex: 1; overflow-y: auto; margin-bottom: 8px; min-height: 50px; }
+.list-entry { padding: 6px; margin-bottom: 5px; background: #222; cursor: pointer; border-radius: 6px; border: 1px solid #333; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #aaa; overflow: hidden; }
+.list-entry span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-entry:hover { background: #333; }
+.list-entry.active { background: #4f46e5; border-color: #6366f1; color: white; }
+.list-entry .del-btn { color: #ff4b72; opacity: 0.4; padding: 2px 4px; flex-shrink: 0; }
+.list-entry .del-btn:hover { opacity: 1; }
+
+.layer-config-grid { display: flex; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
+.layer-list-part { width: 100px; display: flex; flex-direction: column; flex-shrink: 0; }
+.param-part { flex: 1; overflow-y: auto; padding-right: 5px; min-height: 0; }
+
+input[type=range] { width: 100%; margin-top: 5px; margin-bottom: 12px; accent-color: #6366f1; }
+.hint { color: #888; font-size: 11px; margin-top: 10px; line-height: 1.4; border-top: 1px solid #333; padding-top: 8px; }
+.param-title { font-weight: bold; margin-bottom: 10px; color: #6366f1; font-size: 14px; }
+.label-val { display: flex; justify-content: space-between; color: #ccc; }
+
+input[type=file] { display: none; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+#errorLog { position: absolute; bottom: 5px; left: 5px; color: #ff4b72; background: rgba(0,0,0,0.7); font-size: 10px; z-index: 1000; padding: 2px 5px; border-radius: 4px; pointer-events: none; }
+</style>
+</head>
+<body oncontextmenu="return false;">
+
+<canvas id="glcanvas"></canvas>
+<canvas id="overlayCanvas"></canvas>
+<div id="errorLog"></div>
+
+<button id="editBtn" title="打开/关闭管理面板">⚙️</button>
+
+<div id="uiPanel">
+    <div class="drag-handle" id="dragHandle">≡ 角色多工程管理面板 ≡</div>
+    
+    <div class="main-flex">
+        <!-- 侧边栏：角色/工程列表 -->
+        <div class="project-sidebar">
+            <div style="font-weight:bold; color:#6366f1; margin-bottom:10px; font-size:12px;">角色列表</div>
+            <div id="projectList" class="item-list"></div>
+            <button class="action-btn primary" onclick="createNewProject()">+ 新工程</button>
+        </div>
+
+        <!-- 主编辑区 -->
+        <div class="editor-area">
+            <div id="projectHeader" style="margin-bottom:10px;">
+                <button class="action-btn" onclick="document.getElementById('fileIn').click()" style="background:#222; border-style:dashed;">[ 更换当前工程背景图 ]</button>
+                <input type="file" id="fileIn" accept="image/*">
+            </div>
+
+            <div class="layer-config-grid">
+                <!-- 图层列表 -->
+                <div class="layer-list-part">
+                    <div style="color:#888; margin-bottom:5px; font-size:11px;">图层列表</div>
+                    <button class="action-btn" onclick="addLayer('jiggle')">+ 摇动层</button>
+                    <button class="action-btn" onclick="addLayer('breath')">+ 呼吸层</button>
+                    <div id="layerList" class="item-list"></div>
+                </div>
+
+                <!-- 参数调节 -->
+                <div class="param-part">
+                    <div id="noLayerMsg" style="color:#555; text-align:center; margin-top: 60px;">请先在左侧<br>选中一个图层</div>
+                    
+                    <div id="jiggleParams" style="display:none;">
+                        <div class="param-title">摇动参数</div>
+                        <div class="label-val"><span>弹簧刚度</span><span id="jStiffVal">0.05</span></div>
+                        <input type="range" id="jStiff" min="0.005" max="0.2" step="0.005">
+                        <div class="label-val"><span>阻尼系数</span><span id="jDampVal">0.92</span></div>
+                        <input type="range" id="jDamp" min="0.6" max="0.99" step="0.01">
+                        <div class="label-val"><span>互动强度</span><span id="jStrengthVal">1.0</span></div>
+                        <input type="range" id="jStrength" min="0.1" max="5.0" step="0.1">
+                        <div class="label-val"><span>最大变形</span><span id="jMaxDispVal">0.1</span></div>
+                        <input type="range" id="jMaxDisp" min="0.01" max="0.5" step="0.01">
+                    </div>
+                    
+                    <div id="breathParams" style="display:none;">
+                        <div class="param-title">呼吸参数</div>
+                        <div class="label-val"><span>呼吸速度</span><span id="bSpeedVal">1.5</span></div>
+                        <input type="range" id="bSpeed" min="0.1" max="5.0" step="0.1">
+                        <div class="label-val"><span>上下幅度</span><span id="bAmpYVal">1.0</span></div>
+                        <input type="range" id="bAmpY" min="-3" max="3" step="0.1">
+                        <div class="label-val"><span>左右幅度</span><span id="bAmpXVal">0</span></div>
+                        <input type="range" id="bAmpX" min="-3" max="3" step="0.1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="hint">
+                💡 <b>小窍门</b>：你可以为不同角色建立独立工程。系统会自动记住每张图的权重。
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- Debug Error Handler ---
+window.onerror = function(m, u, l) {
+    document.getElementById('errorLog').innerText = "ERR: " + m + " (L" + l + ")";
+    return false;
+};
+
+// --- IndexedDB Project System ---
+var dbName = "JiggleMultiProjectDB";
+var storeName = "projects";
+
+function initDB() {
+    return new Promise(function(resolve, reject) {
+        var req = indexedDB.open(dbName, 2);
+        req.onupgradeneeded = function(e) {
+            var db = e.target.result;
+            if(!db.objectStoreNames.contains(storeName)){
+                db.createObjectStore(storeName, { keyPath: "id" });
+            }
+        };
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror = function() { reject(req.error); };
+    });
+}
+
+async function db_saveProject(project) {
+    var db = await initDB();
+    var tx = db.transaction(storeName, "readwrite");
+    // Ensure weights are serialized as plain arrays for storage compatibility
+    var pToSave = JSON.parse(JSON.stringify(project));
+    pToSave.layers.forEach(function(l, idx) {
+        pToSave.layers[idx].weights = Array.from(project.layers[idx].weights);
+    });
+    tx.objectStore(storeName).put(pToSave);
+    return new Promise(function(res) { tx.oncomplete = res; });
+}
+
+async function db_getAllProjects() {
+    var db = await initDB();
+    var tx = db.transaction(storeName, "readonly");
+    var req = tx.objectStore(storeName).getAll();
+    return new Promise(function(res) { req.onsuccess = function() { res(req.result || []); }; });
+}
+
+async function db_deleteProject(id) {
+    var db = await initDB();
+    var tx = db.transaction(storeName, "readwrite");
+    tx.objectStore(storeName).delete(id);
+    return new Promise(function(res) { tx.oncomplete = res; });
+}
+
+// --- App State ---
+var GRID_W = 80;
+var GRID_H = 80;
+var VERTEX_COUNT = (GRID_W + 1) * (GRID_H + 1);
+
+var currentProject = {
+    id: "default",
+    name: "默认工程",
+    image: null, // Blob
+    layers: []
+};
+var activeLayerId = null;
+var layerIdCounter = 0;
+var editMode = false;
+var activeTexture = null;
+var currentImageAspectRatio = 1;
+
+function generateId() { return 'P_' + Math.random().toString(36).slice(2, 11); }
+
+// --- Project Logic ---
+async function createNewProject() {
+    var name = prompt("请输入新工程名称:", "新工程 " + (Date.now()%1000));
+    if(!name) return;
+    var newProj = {
+        id: generateId(),
+        name: name,
+        image: null,
+        layers: []
+    };
+    await db_saveProject(newProj);
+    loadProject(newProj.id);
+}
+
+async function loadProject(id) {
+    var projects = await db_getAllProjects();
+    var found = projects.find(function(p) { return p.id === id; });
+    if(found) {
+        currentProject = found;
+        // Convert plain arrays back to Float32
+        currentProject.layers.forEach(function(l) {
+            var wArr = new Float32Array(VERTEX_COUNT);
+            if(l.weights) {
+                for(var i=0; i<VERTEX_COUNT; i++) wArr[i] = l.weights[i] || 0;
+            }
+            l.weights = wArr;
+            l.dx = 0; l.dy = 0; l.vx = 0; l.vy = 0;
+        });
+        localStorage.setItem("currentProjectId", id);
+        activeLayerId = currentProject.layers.length > 0 ? currentProject.layers[0].id : null;
+        
+        if(currentProject.image) loadTextureFromBlob(currentProject.image);
+        else { if(activeTexture) gl.deleteTexture(activeTexture); activeTexture = null; }
+        
+        renderProjectList();
+        renderLayerList();
+        updateParamUI();
+    }
+}
+
+async function renderProjectList() {
+    var list = await db_getAllProjects();
+    var container = document.getElementById('projectList');
+    container.innerHTML = '';
+    list.forEach(function(p) {
+        var div = document.createElement('div');
+        div.className = 'list-entry' + (p.id === currentProject.id ? ' active' : '');
+        div.onclick = function() { loadProject(p.id); };
+        
+        var nameSpan = document.createElement('span');
+        nameSpan.innerText = p.name;
+        
+        var del = document.createElement('span');
+        del.className = 'del-btn';
+        del.innerText = '🗑️';
+        del.onclick = function(e) {
+            e.stopPropagation();
+            if(confirm("确定删除此工程？")) {
+                db_deleteProject(p.id).then(function() {
+                    if(currentProject.id === p.id) location.reload();
+                    else renderProjectList();
+                });
+            }
+        };
+        
+        div.appendChild(nameSpan);
+        div.appendChild(del);
+        container.appendChild(div);
+    });
+}
+
+function saveCurrent() {
+    db_saveProject(currentProject);
+}
+var saveDebounce = null;
+function saveCurrentDebounced() {
+    if(saveDebounce) clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(saveCurrent, 500);
+}
+
+// --- Layer Logic ---
+function addLayer(type) {
+    layerIdCounter++;
+    var newL = {
+        id: 'L_' + Date.now(),
+        name: (type === 'jiggle' ? '摇动 ' : '呼吸 ') + layerIdCounter,
+        type: type,
+        stiffness: 0.05, damping: 0.92, strength: 1.0, maxDisp: 0.1,
+        speed: 1.5, ampX: 0, ampY: 1.0,
+        dx: 0, dy: 0, vx: 0, vy: 0,
+        weights: new Float32Array(VERTEX_COUNT)
+    };
+    currentProject.layers.push(newL);
+    activeLayerId = newL.id;
+    renderLayerList();
+    updateParamUI();
+    saveCurrent();
+}
+
+function renderLayerList() {
+    var container = document.getElementById('layerList');
+    container.innerHTML = '';
+    currentProject.layers.forEach(function(l) {
+        var div = document.createElement('div');
+        div.className = 'list-entry' + (l.id === activeLayerId ? ' active' : '');
+        div.onclick = function() { activeLayerId = l.id; renderLayerList(); updateParamUI(); };
+        var s = document.createElement('span'); s.innerText = l.name;
+        var del = document.createElement('span'); del.className = 'del-btn'; del.innerText = '×';
+        del.onclick = function(e) {
+            e.stopPropagation();
+            currentProject.layers = currentProject.layers.filter(function(x){return x.id!==l.id;});
+            if(activeLayerId === l.id) activeLayerId = null;
+            renderLayerList(); updateParamUI(); saveCurrent();
+        };
+        div.appendChild(s); div.appendChild(del);
+        container.appendChild(div);
+    });
+}
+
+function updateParamUI() {
+    var noLayer = document.getElementById('noLayerMsg');
+    var jP = document.getElementById('jiggleParams');
+    var bP = document.getElementById('breathParams');
+    noLayer.style.display = 'block'; jP.style.display = 'none'; bP.style.display = 'none';
+    
+    var layer = currentProject.layers.find(function(l){return l.id === activeLayerId;});
+    if(!layer) return;
+    noLayer.style.display = 'none';
+    if(layer.type === 'jiggle') {
+        jP.style.display = 'block';
+        document.getElementById('jStiff').value = layer.stiffness;
+        document.getElementById('jStiffVal').innerText = layer.stiffness;
+        document.getElementById('jDamp').value = layer.damping;
+        document.getElementById('jDampVal').innerText = layer.damping;
+        document.getElementById('jStrength').value = layer.strength || 1.0;
+        document.getElementById('jStrengthVal').innerText = layer.strength || 1.0;
+        document.getElementById('jMaxDisp').value = layer.maxDisp || 0.1;
+        document.getElementById('jMaxDispVal').innerText = layer.maxDisp || 0.1;
+    } else {
+        bP.style.display = 'block';
+        document.getElementById('bSpeed').value = layer.speed;
+        document.getElementById('bSpeedVal').innerText = layer.speed;
+        document.getElementById('bAmpX').value = layer.ampX;
+        document.getElementById('bAmpXVal').innerText = layer.ampX;
+        document.getElementById('bAmpY').value = layer.ampY;
+        document.getElementById('bAmpYVal').innerText = layer.ampY;
+    }
+}
+
+// Bind Inputs
+document.getElementById('jStiff').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.stiffness=parseFloat(e.target.value); document.getElementById('jStiffVal').innerText=l.stiffness; saveCurrentDebounced(); }};
+document.getElementById('jDamp').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.damping=parseFloat(e.target.value); document.getElementById('jDampVal').innerText=l.damping; saveCurrentDebounced(); }};
+document.getElementById('jStrength').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.strength=parseFloat(e.target.value); document.getElementById('jStrengthVal').innerText=l.strength; saveCurrentDebounced(); }};
+document.getElementById('jMaxDisp').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.maxDisp=parseFloat(e.target.value); document.getElementById('jMaxDispVal').innerText=l.maxDisp; saveCurrentDebounced(); }};
+document.getElementById('bSpeed').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.speed=parseFloat(e.target.value); document.getElementById('bSpeedVal').innerText=l.speed; saveCurrentDebounced(); }};
+document.getElementById('bAmpX').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.ampX=parseFloat(e.target.value); document.getElementById('bAmpXVal').innerText=l.ampX; saveCurrentDebounced(); }};
+document.getElementById('bAmpY').oninput = function(e){ var l = currentProject.layers.find(function(x){return x.id===activeLayerId}); if(l){ l.ampY=parseFloat(e.target.value); document.getElementById('bAmpYVal').innerText=l.ampY; saveCurrentDebounced(); }};
+
+// --- WebGL Setup ---
+var canvas = document.getElementById("glcanvas");
+var gl = canvas.getContext("webgl");
+var vsSource = "attribute vec2 a_position; attribute vec2 a_texCoord; varying vec2 v_texCoord; void main() { gl_Position = vec4(a_position * 2.0 - 1.0, 0.0, 1.0); gl_Position.y = -gl_Position.y; v_texCoord = a_texCoord; }";
+var fsSource = "precision mediump float; uniform sampler2D u_image; varying vec2 v_texCoord; void main() { if(v_texCoord.x < 0.0 || v_texCoord.x > 1.0 || v_texCoord.y < 0.0 || v_texCoord.y > 1.0) { gl_FragColor = vec4(0.0); } else { gl_FragColor = texture2D(u_image, v_texCoord); } }";
+
+function createShader(type, source) {
+    var s = gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); return s;
+}
+var program = gl.createProgram();
+gl.attachShader(program, createShader(gl.VERTEX_SHADER, vsSource));
+gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fsSource));
+gl.linkProgram(program); gl.useProgram(program);
+
+var positionLocation = gl.getAttribLocation(program, "a_position");
+var texcoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+var basePoints = [];
+var vertexData = new Float32Array(VERTEX_COUNT * 4);
+var indices = [];
+for(var y=0; y<=GRID_H; y++) {
+    for(var x=0; x<=GRID_W; x++) { basePoints.push({ origX: x/GRID_W, origY: y/GRID_H }); }
+}
+for(var y=0; y<GRID_H; y++) {
+    for(var x=0; x<GRID_W; x++) {
+        var p0 = y*(GRID_W+1)+x, p1 = p0+1, p2 = (y+1)*(GRID_W+1)+x, p3 = p2+1;
+        indices.push(p0,p2,p1,p1,p2,p3);
+    }
+}
+var buffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+gl.bufferData(gl.ARRAY_BUFFER, vertexData.byteLength, gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(positionLocation); gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 16, 0);
+gl.enableVertexAttribArray(texcoordLocation); gl.vertexAttribPointer(texcoordLocation, 2, gl.FLOAT, false, 16, 8);
+var indexBuffer = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+// --- Interactions ---
+var lastMouseX=0, lastMouseY=0, currMouseX=-1, currMouseY=-1;
+var brushRadius=0.08, isPainting=false, paintMode=1;
+
+function paintWeight(nx, ny) {
+    var layer = currentProject.layers.find(function(l){return l.id === activeLayerId;});
+    if(!layer) return;
+    var changed = false;
+    basePoints.forEach(function(p, i) {
+        var d = Math.hypot(p.origX - nx, p.origY - ny);
+        if(d < brushRadius) {
+            var inf = (1 - d/brushRadius)*0.15;
+            var cur = layer.weights[i];
+            var nxt = cur + paintMode*inf;
+            if(nxt>1) nxt=1; if(nxt<0) nxt=0;
+            if(nxt!==cur){ layer.weights[i]=nxt; changed=true; }
+        }
+    });
+    if(changed) saveCurrentDebounced();
+}
+
+window.addEventListener('mousemove', function(e) {
+    var nx = e.clientX/window.innerWidth, ny = e.clientY/window.innerHeight;
+    currMouseX = nx; currMouseY = ny;
+    if(editMode) { if(isPainting) paintWeight(nx, ny); }
+    else if(activeTexture) {
+        var mvX = nx - lastMouseX, mvY = ny - lastMouseY;
+        if(Math.hypot(mvX, mvY) > 0.001) {
+            currentProject.layers.forEach(function(l) {
+                if(l.type !== 'jiggle') return;
+                var inf = 0;
+                basePoints.forEach(function(p, i) {
+                    if(l.weights[i]>0) {
+                        var d = Math.hypot(p.origX-nx, p.origY-ny);
+                        if(d<0.12) inf += (1-d/0.12)*l.weights[i];
+                    }
+                });
+                if(inf>0) {
+                    var c = Math.min(inf, 1.0);
+                    l.vx += mvX * c * 1.5 * (l.strength||1.0);
+                    l.vy += mvY * c * 1.5 * (l.strength||1.0);
+                }
+            });
+        }
+    }
+    lastMouseX = nx; lastMouseY = ny;
+});
+
+canvas.addEventListener('mousedown', function(e) {
+    if(!editMode) return;
+    isPainting = true; paintMode = (e.button === 2) ? -1 : 1;
+    paintWeight(e.clientX/window.innerWidth, e.clientY/window.innerHeight);
+});
+window.addEventListener('mouseup', function(){ isPainting = false; });
+canvas.addEventListener('wheel', function(e) {
+    if(!editMode) return;
+    brushRadius -= e.deltaY*0.0002;
+    if(brushRadius<0.02) brushRadius=0.02; if(brushRadius>0.5) brushRadius=0.5;
+});
+
+var uiPanel = document.getElementById('uiPanel');
+var isDraggingUI = false, uiOffX=0, uiOffY=0;
+document.getElementById('dragHandle').onmousedown = function(e) {
+    isDraggingUI = true; uiOffX = e.clientX - uiPanel.offsetLeft; uiOffY = e.clientY - uiPanel.offsetTop;
+};
+window.addEventListener('mousemove', function(e) { if(isDraggingUI){ uiPanel.style.left=(e.clientX-uiOffX)+'px'; uiPanel.style.top=(e.clientY-uiOffY)+'px'; } });
+window.addEventListener('mouseup', function(){ isDraggingUI=false; });
+
+document.getElementById('editBtn').onclick = function() { editMode=!editMode; uiPanel.style.display=editMode?'block':'none'; };
+document.getElementById('fileIn').onchange = async function(e) {
+    if(e.target.files.length > 0) {
+        var file = e.target.files[0];
+        currentProject.image = file;
+        loadTextureFromBlob(file);
+        saveCurrent();
+    }
+};
+
+function loadTextureFromBlob(blob) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+        currentImageAspectRatio = img.width / img.height;
+        if(activeTexture) gl.deleteTexture(activeTexture);
+        activeTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, activeTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        URL.revokeObjectURL(url);
+    };
+    img.src = url;
+}
+
+// --- Init & Loop ---
+async function start() {
+    var lastId = localStorage.getItem("currentProjectId");
+    var all = await db_getAllProjects();
+    if(all.length === 0) {
+        await db_saveProject(currentProject); // Save default
+    }
+    loadProject(lastId || "default");
+}
+start();
+
+var overlayCanvas = document.getElementById('overlayCanvas');
+var ctx = overlayCanvas.getContext('2d');
+
+function render() {
+    var w=window.innerWidth, h=window.innerHeight;
+    if(canvas.width!==w || canvas.height!==h) { canvas.width=w; canvas.height=h; overlayCanvas.width=w; overlayCanvas.height=h; gl.viewport(0,0,w,h); }
+    var aC = w/h, uS=1, vS=1, uO=0, vO=0;
+    if(aC > currentImageAspectRatio) { vS=currentImageAspectRatio/aC; vO=(1-vS)/2; }
+    else { uS=aC/currentImageAspectRatio; uO=(1-uS)/2; }
+    
+    var time = performance.now()*0.001;
+    currentProject.layers.forEach(function(l) {
+        if(l.type==='jiggle') {
+            var fx = -l.dx*l.stiffness, fy = -l.dy*l.stiffness;
+            l.vx=(l.vx+fx)*l.damping; l.vy=(l.vy+fy)*l.damping;
+            var spd = Math.hypot(l.vx, l.vy); if(spd>0.05){ l.vx=(l.vx/spd)*0.05; l.vy=(l.vy/spd)*0.05; }
+            l.dx+=l.vx; l.dy+=l.vy;
+            var mD=l.maxDisp||0.1, d=Math.hypot(l.dx,l.dy); if(d>mD){ l.dx=(l.dx/d)*mD; l.dy=(l.dy/d)*mD; }
+        } else {
+            l.dx = Math.sin(time*l.speed)*l.ampX*0.005; l.dy=Math.cos(time*l.speed)*l.ampY*0.005;
+        }
+    });
+
+    basePoints.forEach(function(p, i) {
+        var tDx=0, tDy=0;
+        currentProject.layers.forEach(function(l){ if(l.weights[i]>0){ tDx+=l.dx*l.weights[i]; tDy+=l.dy*l.weights[i]; } });
+        vertexData[i*4+0] = p.origX + tDx; vertexData[i*4+1] = p.origY + tDy;
+        vertexData[i*4+2] = p.origX*uS+uO; vertexData[i*4+3] = p.origY*vS+vO;
+    });
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer); gl.bufferSubData(gl.ARRAY_BUFFER, 0, vertexData);
+    gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+    if(activeTexture) { gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0); }
+    else {
+        ctx.clearRect(0,0,w,h); ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.font='20px sans-serif'; ctx.fillText("请在面板左侧【新建工程】并上传图片", w/2-160, h/2);
+        requestAnimationFrame(render); return;
+    }
+    ctx.clearRect(0,0,w,h);
+    if(editMode) {
+        var aL = currentProject.layers.find(function(l){return l.id===activeLayerId});
+        if(aL) {
+            basePoints.forEach(function(p, i) {
+                var wV = aL.weights[i];
+                if(wV>0.01) { ctx.fillStyle=aL.type==='jiggle'?"rgba(255,0,0,"+(wV*0.6)+")":"rgba(0,150,255,"+(wV*0.6)+")"; ctx.fillRect(p.origX*w-2, p.origY*h-2, 4, 4); }
+            });
+        }
+        if(currMouseX>=0 && currMouseY>=0) {
+            ctx.beginPath(); ctx.arc(currMouseX*w, currMouseY*h, brushRadius*Math.max(w,h), 0, Math.PI*2);
+            ctx.strokeStyle=isPainting?(paintMode===1?'rgba(255,0,0,0.8)':'rgba(100,100,100,0.8)'):'rgba(255,255,255,0.5)';
+            ctx.lineWidth=2; ctx.stroke();
+        }
+    }
+    requestAnimationFrame(render);
+}
+render();
+</script>
+</body>
+</html>

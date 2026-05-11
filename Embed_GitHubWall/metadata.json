@@ -1,0 +1,23 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": { "cols": 4, "rows": 3 },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "GitHub贡献绿格子墙，显示提交数据和连续天数",
+    "displayName": "GitHub 贡献墙",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_GitHubWall",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": { "supportsFile": false, "supportsImage": false, "supportsVideo": false },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_GitHubWall.html",
+    "widgetType": "Html"
+}

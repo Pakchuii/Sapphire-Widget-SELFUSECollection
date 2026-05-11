@@ -1,0 +1,23 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": { "cols": 3, "rows": 5 },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "DeepSeek AI 桌面助手，随时提问",
+    "displayName": "DeepSeek 助手",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_GeminiChat",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": { "supportsFile": false, "supportsImage": false, "supportsVideo": false },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_GeminiChat.html",
+    "widgetType": "Html"
+}

@@ -1,0 +1,30 @@
+{
+    "author": "Antigravity",
+    "authorEmail": "",
+    "authorWebsite": "",
+    "customFields": {},
+    "defaultGridSize": {
+        "cols": 2,
+        "rows": 3
+    },
+    "defaultShowBackground": false,
+    "defaultShowSide": false,
+    "description": "多色便签，支持编辑和持久化保存",
+    "displayName": "便签",
+    "functions": [],
+    "manualFileName": "",
+    "minimumAppVersion": "",
+    "mouseEventMode": 2,
+    "name": "Embed_StickyNote",
+    "permissions": [],
+    "previewImageFileName": "",
+    "supportTypes": {
+        "supportsFile": false,
+        "supportsImage": false,
+        "supportsVideo": false
+    },
+    "tags": [],
+    "version": "1.0.0",
+    "widgetFileName": "Embed_StickyNote.html",
+    "widgetType": "Html"
+}
